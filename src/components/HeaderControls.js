@@ -1,5 +1,9 @@
 import React from 'react';
-import '../styles/HeaderControls.css';
+// Import Mantine components
+import { Group, Switch, TextInput, Button, Paper } from '@mantine/core'; // Import Paper
+// Import Lucide icons
+import { Search, RefreshCw, Save, Plus } from 'lucide-react';
+// Remove old CSS import: import '../styles/HeaderControls.css';
 
 const HeaderControls = ({
   abrirModal,
@@ -14,74 +18,70 @@ const HeaderControls = ({
   hasUnsavedChanges
 }) => {
   const handleFOChange = (e) => {
-    // Permite apenas números e limita a 4 dígitos
+    // Allow only numbers and limit to 4 digits
     const value = e.target.value.replace(/\D/g, '').slice(0, 4);
     setFiltroFO(value);
   };
 
   return (
-    <div className="header-controls">
-      <div className="app-title">
-        <h1>Gestão de Fluxo de Trabalho para Designers</h1>
-      </div>
-      
-      <div className="filters">
-        <div className="toggle-container">
-          <label className="toggle">
-            <input 
-              type="checkbox" 
-              checked={filtroAbertos} 
-              onChange={() => setFiltroAbertos(!filtroAbertos)}
-            />
-            <span className="slider"></span>
-            <span className="toggle-text">Apenas trabalhos em aberto</span>
-          </label>
-        </div>
-        
-        <div className="search-container">
-          <input
-            type="text"
-            placeholder="Filtrar por FO (ex: 1234)"
-            value={filtroFO}
-            onChange={handleFOChange}
-            className="search-input"
-          />
-          
-          <input
-            type="text"
-            placeholder="Filtrar por ITEM"
-            value={filtroItem}
-            onChange={(e) => setFiltroItem(e.target.value)}
-            className="search-input"
-          />
-        </div>
-      </div>
-      
-      <div className="actions">
-        <button
-          className="btn-refresh"
+    // Wrap controls in Paper for consistent styling with MetricsPage
+    <Paper shadow="xs" p="md" mb="lg" withBorder>
+      <Group justify="space-between"> {/* Remove mb="md" from Group */}
+      {/* Group for Filters */}
+      <Group>
+        <Switch
+          label="Apenas trabalhos em aberto"
+          checked={filtroAbertos}
+          onChange={(event) => setFiltroAbertos(event.currentTarget.checked)}
+          size="sm" // Adjust size if needed
+        />
+        <TextInput
+          placeholder="Filtrar por FO (ex: 1234)"
+          value={filtroFO}
+          onChange={handleFOChange}
+          leftSection={<Search size={16} />}
+          style={{ width: 200 }} // Adjust width as needed
+        />
+        <TextInput
+          placeholder="Filtrar por ITEM"
+          value={filtroItem}
+          onChange={(e) => setFiltroItem(e.target.value)}
+          leftSection={<Search size={16} />}
+          style={{ width: 200 }} // Adjust width as needed
+        />
+      </Group>
+
+      {/* Group for Actions */}
+      <Group>
+        <Button
+          variant="outline" // Or choose another variant
           onClick={refreshData}
           title="Atualizar dados"
+          leftSection={<RefreshCw size={16} />}
         >
-          🔄 Atualizar
-        </button>
+          Atualizar
+        </Button>
         {hasUnsavedChanges && (
-          <button
-            className="btn-save-all"
+          <Button
+            variant="filled" // Or choose another variant
+            color="yellow" // Use a color indicating caution/action
             onClick={saveAllChanges}
             title="Salvar todas as alterações"
+            leftSection={<Save size={16} />}
           >
-            💾 Salvar Alterações
-          </button>
+            Salvar Alterações
+          </Button>
         )}
-        <button
-          className="btn-novo-trabalho"
+        <Button
           onClick={abrirModal}
+          leftSection={<Plus size={16} />}
+          color="acidOrange" // Use the primary theme color
         >
           Novo Trabalho
-        </button>
-      </div>
-    </div>
+        </Button>
+      </Group>
+      </Group>
+    </Paper>
   );
 };
 

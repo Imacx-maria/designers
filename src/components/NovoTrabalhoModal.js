@@ -1,15 +1,30 @@
 import React, { useState } from 'react';
-import '../styles/NovoTrabalhoModal.css';
+// Import Mantine components
+import {
+  Modal,
+  TextInput,
+  Button,
+  Group,
+  Stack,
+  ActionIcon,
+  Text,
+  NumberInput, // Use NumberInput for FO
+} from '@mantine/core';
+// Import Lucide icons
+import { Plus, Trash2 } from 'lucide-react'; // Removed X
+// Remove old CSS import: import '../styles/NovoTrabalhoModal.css';
 
-const NovoTrabalhoModal = ({ fecharModal, supabase, showToast, refreshData }) => {
-  const [numeroFO, setNumeroFO] = useState('');
+// Update props to receive isModalOpen
+const NovoTrabalhoModal = ({ isModalOpen, fecharModal, supabase, showToast, refreshData }) => {
+  // Keep existing state
+  const [numeroFO, setNumeroFO] = useState(''); // Keep as string for NumberInput or change to number
   const [itens, setItens] = useState(['']);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleNumeroFOChange = (e) => {
-    // Permite apenas números e limita a 4 dígitos
-    const value = e.target.value.replace(/\D/g, '').slice(0, 4);
-    setNumeroFO(value);
+  // Keep existing handlers, adjust if needed for NumberInput
+  const handleNumeroFOChange = (value) => {
+    // NumberInput handles numeric validation, clamp, etc.
+    setNumeroFO(value); // value is number or string depending on config
   };
 
   const handleItemChange = (index, value) => {
@@ -23,40 +38,57 @@ const NovoTrabalhoModal = ({ fecharModal, supabase, showToast, refreshData }) =>
   };
 
   const removerItem = (index) => {
-    if (itens.length === 1) return; // Manter pelo menos um item
+    if (itens.length === 1) return;
     const novosItens = [...itens];
     novosItens.splice(index, 1);
     setItens(novosItens);
   };
 
+  // Keep existing handleSubmit logic
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     console.log('Submitting new job form...');
-    
-    // Validações
-    if (!numeroFO || numeroFO.length === 0) {
+
+    if (!numeroFO) { // Check if numeroFO is empty or 0
       showToast.error('O número da FO é obrigatório');
       return;
     }
-    
-    const numeroFOInt = parseInt(numeroFO);
-    if (isNaN(numeroFOInt)) {
-      showToast.error('O número da FO deve ser um número válido');
+
+    const numeroFOInt = parseInt(numeroFO, 10); // Ensure it's parsed correctly
+    if (isNaN(numeroFOInt) || numeroFOInt <= 0) {
+      showToast.error('O número da FO deve ser um número positivo');
       return;
     }
-    
-    // Filtra itens vazios
+
     const itensValidos = itens.filter(item => item.trim() !== '');
     if (itensValidos.length === 0) {
       showToast.error('É necessário adicionar pelo menos um item');
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
-      // Prepara os dados para inserção
+      // Check if FO number already exists
+      console.log(`Checking existence for FO: ${numeroFOInt}`);
+      const { error: checkError, count } = await supabase // Remove unused 'existingFo'
+        .from('folhas_obra')
+        .select('id', { count: 'exact', head: true }) // Efficiently check count
+        .eq('numero_fo', numeroFOInt);
+
+      if (checkError) {
+        console.error('Error checking FO existence:', checkError);
+        throw new Error('Não foi possível verificar o número da FO. Tente novamente.'); // Throw a user-friendly error
+      }
+
+      console.log(`Count for existing FO ${numeroFOInt}:`, count);
+      if (count > 0) {
+        showToast.error('Esse número de FO já existe');
+        setIsSubmitting(false); // Reset submitting state
+        return; // Stop submission
+      }
+
+      // --- Proceed with insertion if FO doesn't exist ---
       const registros = itensValidos.map(item => ({
         numero_fo: numeroFOInt,
         item: item,
@@ -66,110 +98,124 @@ const NovoTrabalhoModal = ({ fecharModal, supabase, showToast, refreshData }) =>
         paginacao: false,
         data_in: new Date().toISOString(),
       }));
-      
+
       console.log('Preparing to insert records:', registros);
-      
-      // Insere todos os registros de uma vez
       const { data, error } = await supabase
         .from('folhas_obra')
         .insert(registros)
-        .select(); // Add select to get the inserted data back
-        
-      if (error) {
-        console.error('Error inserting records:', error);
-        showToast.error(`Erro ao adicionar trabalho: ${error.message}`);
-        return;
-      }
-      
+        .select();
+
+      if (error) throw error; // Throw error to be caught below
+
       console.log('Records inserted successfully:', data);
       showToast.success(`${registros.length} trabalho(s) adicionado(s) com sucesso!`);
-      
-      // Refresh the table to show the new job
+
       if (refreshData) {
         console.log('Refreshing data after adding new job...');
-        refreshData();
+        await refreshData(); // Ensure refresh completes
       }
-      
+
+      // Reset form state after successful submission
+      setNumeroFO('');
+      setItens(['']);
       fecharModal();
+
     } catch (error) {
-      console.error('Exception adding job:', error);
+      console.error('Error adding job:', error);
       showToast.error(`Erro ao adicionar trabalho: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Reset state when modal closes
+  const handleClose = () => {
+      setNumeroFO('');
+      setItens(['']);
+      setIsSubmitting(false); // Reset submitting state as well
+      fecharModal();
+  }
+
   return (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        <div className="modal-header">
-          <h2>Novo Trabalho</h2>
-          <button className="btn-fechar" onClick={fecharModal}>&times;</button>
-        </div>
-        
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="numeroFO">Número FO:</label>
-            <input
-              type="text"
-              id="numeroFO"
-              placeholder="Ex: 1234"
-              value={numeroFO}
-              onChange={handleNumeroFOChange}
-              maxLength={4}
-            />
-            <small>Máximo 4 dígitos</small>
-          </div>
-          
-          <h3>Itens</h3>
-          
-          {itens.map((item, index) => (
-            <div className="form-group item-row" key={index}>
-              <input
-                type="text"
-                placeholder={`Item ${index + 1} (Ex: Expositor Sumol verão)`}
-                value={item}
-                onChange={(e) => handleItemChange(index, e.target.value)}
-              />
-              <button 
-                type="button" 
-                className="btn-remover" 
-                onClick={() => removerItem(index)}
-                disabled={itens.length === 1}
-              >
-                &times;
-              </button>
-            </div>
-          ))}
-          
-          <button 
-            type="button" 
-            className="btn-adicionar-item" 
+    <Modal
+      opened={isModalOpen}
+      onClose={handleClose} // Use the enhanced close handler
+      title="Novo Trabalho"
+      size="lg" // Make modal wider
+      centered // Center the modal
+      overlayProps={{
+          backgroundOpacity: 0.55,
+          blur: 3,
+        }}
+      transitionProps={{ transition: 'fade', duration: 200 }}
+    >
+      <form onSubmit={handleSubmit}>
+        <Stack gap="md"> {/* Use Stack for vertical spacing */}
+          <NumberInput
+            label="Número FO"
+            placeholder="Ex: 1234"
+            value={numeroFO}
+            onChange={handleNumeroFOChange}
+            min={1} // Minimum value
+            max={9999} // Maximum value based on 4 digits
+            allowDecimal={false}
+            required // Mark as required
+            hideControls // Hide spinner controls if desired
+          />
+
+          <Text fw={500}>Itens</Text>
+          <Stack gap="xs">
+            {itens.map((item, index) => (
+              <Group key={index} gap="xs" wrap="nowrap"> {/* Remove grow prop, add nowrap */}
+                <TextInput
+                  placeholder={`Item ${index + 1} (Ex: Expositor Sumol verão)`}
+                  value={item}
+                  onChange={(e) => handleItemChange(index, e.target.value)}
+                  style={{ flexGrow: 1 }} // Ensure TextInput grows
+                />
+                <ActionIcon
+                  variant="subtle"
+                  color="red"
+                  onClick={() => removerItem(index)}
+                  disabled={itens.length === 1}
+                  title="Remover Item"
+                 style={{ width: 36, height: 36 }} // Make button square
+               >
+                 <Trash2 size={16} />
+               </ActionIcon>
+              </Group>
+            ))}
+          </Stack>
+
+          <Button
+            variant="light" // Use light variant for less emphasis
+            leftSection={<Plus size={16} />}
             onClick={adicionarItem}
+            fullWidth // Make button take full width
           >
-            + Adicionar Item
-          </button>
-          
-          <div className="modal-footer">
-            <button 
-              type="button" 
-              className="btn-cancelar" 
-              onClick={fecharModal}
+            Adicionar Item
+          </Button>
+
+          {/* Footer Buttons */}
+          <Group justify="flex-end" mt="lg"> {/* Push buttons to the right */}
+            <Button
+              variant="default" // Default variant for cancel
+              onClick={handleClose}
               disabled={isSubmitting}
             >
               Cancelar
-            </button>
-            <button 
-              type="submit" 
-              className="btn-salvar" 
-              disabled={isSubmitting}
+            </Button>
+            <Button
+              type="submit"
+              loading={isSubmitting} // Show loading state
+              color="acidOrange" // Use primary color for submit
             >
-              {isSubmitting ? 'Salvando...' : 'Confirmar Trabalho'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+              Confirmar Trabalho
+            </Button>
+          </Group>
+        </Stack>
+      </form>
+    </Modal>
   );
 };
 
