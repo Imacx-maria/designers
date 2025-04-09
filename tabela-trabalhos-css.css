@@ -1,0 +1,130 @@
+.tabela-container {
+  overflow-x: auto;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.tabela-trabalhos {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.tabela-trabalhos th,
+.tabela-trabalhos td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.tabela-trabalhos th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #2c3e50;
+  cursor: pointer;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.tabela-trabalhos th:hover {
+  background-color: #e9ecef;
+}
+
+.tabela-trabalhos tr:last-child td {
+  border-bottom: none;
+}
+
+.tabela-trabalhos tr:hover {
+  background-color: #f5f8fa;
+}
+
+.tabela-trabalhos select,
+.tabela-trabalhos input[type="text"] {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.tabela-trabalhos select:focus,
+.tabela-trabalhos input[type="text"]:focus {
+  outline: none;
+  border-color: #2196F3;
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+}
+
+/* Status dots */
+.status-dot {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.status-ativo {
+  background-color: #4CAF50;
+  box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+}
+
+.status-inativo {
+  background-color: #ff9800;
+  box-shadow: 0 0 5px rgba(255, 152, 0, 0.5);
+}
+
+/* Checkbox container */
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.checkbox-container input[type="checkbox"] {
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+/* Trabalho concluído */
+.trabalho-concluido {
+  background-color: #f0f8f0;
+  color: #666;
+}
+
+.btn-excluir {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 16px;
+  padding: 0;
+}
+
+.btn-excluir:hover {
+  background-color: #d32f2f;
+}
+
+.no-data {
+  text-align: center;
+  padding: 20px;
+  color: #777;
+  font-style: italic;
+}
+
+@media (max-width: 768px) {
+
+@media (max-width: 768px) {
+  .tabela-trabalhos th,
+  .tabela-trabalhos td {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+}
