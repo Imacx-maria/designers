@@ -94,48 +94,153 @@ const TabelaTrabalhos = ({ trabalhos, designers, supabase, showToast, refreshDat
     }));
   };
 
-  const handleCheckboxChange = (id, field, value) => {
-    console.log(`${field} checkbox changed for job:`, id, 'to:', value);
-    // Allow unchecking now, logic might need adjustment based on desired workflow
-    // if (value === false) {
-    //   console.log('Ignoring attempt to uncheck a checkbox - only one state can be active');
-    //   return;
-    // }
+  const handlePathChange = (id, value) => {
+    console.log('PATH changed for job:', id, 'to:', value);
+    
+    const trabalho = trabalhos.find(t => t.id === id);
+    if (!trabalho) return;
 
-    const updates = {
-      // Reset other statuses if one is checked (optional, based on workflow)
-      // em_curso: false,
-      // duvidas: false,
-      // maquete_enviada: false,
-      // paginacao: false
-    };
-
-    updates[field] = value; // Set the changed field
-
-    // Apply additional business logic rules
-    if (field === 'duvidas' && value) {
-      updates.data_duvidas = new Date().toISOString();
-    } else if (field === 'maquete_enviada' && value) {
-      updates.data_envio = new Date().toISOString();
-    } else if (field === 'paginacao' && value) {
-      updates.data_saida = new Date().toISOString();
-      // Optionally set other statuses to false when paginacao is checked
-      updates.em_curso = false;
-      updates.duvidas = false;
-      updates.maquete_enviada = false;
-    } else if (field === 'em_curso' && value) {
-        // If setting em_curso, ensure a designer is assigned or clear it
-        const currentDesigner = getEffectiveValue(trabalhos.find(t => t.id === id), 'designer_id');
-        if (!currentDesigner) {
-            showToast.warning('Selecione um designer para marcar como "Em Curso".');
-            return; // Prevent setting em_curso without a designer
-        }
-        // Optionally clear other statuses when starting work
-        updates.duvidas = false;
-        updates.maquete_enviada = false;
-        updates.paginacao = false;
+    // Only proceed if pagination is checked
+    if (!getEffectiveState(trabalho, 'paginacao')) {
+      return;
     }
 
+    // Update the path
+    setUnsavedChanges(prev => ({
+      ...prev,
+      [id]: {
+        ...(prev[id] || {}),
+        path_trabalho: value
+      }
+    }));
+  };
+
+  const handlePathKeyPress = (id, event) => {
+    // Only handle Enter key
+    if (event.key !== 'Enter') return;
+
+    const trabalho = trabalhos.find(t => t.id === id);
+    if (!trabalho) return;
+
+    // Only proceed if pagination is checked
+    if (!getEffectiveState(trabalho, 'paginacao')) {
+      return;
+    }
+
+    const path = getEffectiveValue(trabalho, 'path_trabalho');
+    if (!path || path.trim() === '') {
+      showToast.error('O path do trabalho tem que ser preenchido');
+      return;
+    }
+
+    // Show confirmation dialog
+    if (window.confirm('Quer Concluir / Salvar o trabalho?')) {
+      handleSaveJob(id, path);
+    }
+  };
+
+  const handleSaveJob = async (id, path) => {
+    try {
+      const { error } = await supabase
+        .from('folhas_obra')
+        .update({
+          path_trabalho: path,
+          paginacao: true,
+          em_curso: false,
+          duvidas: false,
+          maquete_enviada: false,
+          data_saida: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Clear unsaved changes for this job
+      setUnsavedChanges(prev => {
+        const newState = { ...prev };
+        delete newState[id];
+        return newState;
+      });
+
+      showToast.success('Trabalho salvo com sucesso!');
+      await refreshData();
+    } catch (error) {
+      console.error('Erro ao salvar trabalho:', error);
+      showToast.error(`Erro ao salvar trabalho: ${error.message}`);
+    }
+  };
+
+  const handleCheckboxChange = (id, field, value) => {
+    console.log(`${field} checkbox changed for job:`, id, 'to:', value);
+    
+    const trabalho = trabalhos.find(t => t.id === id);
+    if (!trabalho) return;
+
+    // Handle pagination checkbox
+    if (field === 'paginacao') {
+      if (value) {
+        // When checking pagination, uncheck all other statuses
+        const updates = {
+          paginacao: true,
+          em_curso: false,
+          duvidas: false,
+          maquete_enviada: false,
+          data_saida: new Date().toISOString()
+        };
+
+        setUnsavedChanges(prev => ({
+          ...prev,
+          [id]: {
+            ...(prev[id] || {}),
+            ...updates
+          }
+        }));
+        return;
+      } else {
+        // Just uncheck pagination
+        setUnsavedChanges(prev => ({
+          ...prev,
+          [id]: {
+            ...(prev[id] || {}),
+            paginacao: false,
+            data_saida: null
+          }
+        }));
+        return;
+      }
+    }
+
+    // Don't allow status changes if pagination is checked
+    if (getEffectiveState(trabalho, 'paginacao')) {
+      showToast.warning('Não é possível alterar o status de um trabalho concluído');
+      return;
+    }
+
+    const updates = {
+      [field]: value,
+      updated_at: new Date().toISOString()
+    };
+
+    // Handle other status changes
+    if (field === 'em_curso' && value) {
+      const currentDesigner = getEffectiveValue(trabalho, 'designer_id');
+      if (!currentDesigner) {
+        showToast.warning('Selecione um designer para marcar como "Em Curso"');
+        return;
+      }
+      updates.duvidas = false;
+      updates.maquete_enviada = false;
+    } 
+    else if (field === 'duvidas' && value) {
+      updates.em_curso = false;
+      updates.maquete_enviada = false;
+      updates.data_duvidas = new Date().toISOString();
+    }
+    else if (field === 'maquete_enviada' && value) {
+      updates.duvidas = false;
+      updates.em_curso = false;
+      updates.data_envio = new Date().toISOString();
+    }
 
     setUnsavedChanges(prev => ({
       ...prev,
@@ -146,15 +251,59 @@ const TabelaTrabalhos = ({ trabalhos, designers, supabase, showToast, refreshDat
     }));
   };
 
-  const handlePathChange = (id, value) => {
-    console.log('PATH changed for job:', id, 'to:', value);
-    setUnsavedChanges(prev => ({
-      ...prev,
-      [id]: {
-        ...(prev[id] || {}),
-        path_trabalho: value
+  const handleSaveAllChanges = async () => {
+    // First check ALL jobs in the table that have pagination checked
+    const jobsWithPagination = trabalhos.filter(trabalho => {
+      // Check if pagination is enabled (either from changes or existing state)
+      return getEffectiveState(trabalho, 'paginacao');
+    });
+
+    // Then check which of these jobs are missing paths
+    const jobsNeedingPath = jobsWithPagination.filter(trabalho => {
+      const currentPath = getEffectiveValue(trabalho, 'path_trabalho');
+      return !currentPath || currentPath.trim() === '';
+    });
+
+    // Show error if any job has pagination but no path
+    if (jobsNeedingPath.length > 0) {
+      const jobNumbers = jobsNeedingPath.map(job => job.numero_fo).join(', ');
+      showToast.error(`Não é possível salvar. O path do trabalho tem que ser preenchido para os trabalhos: ${jobNumbers}`);
+      return;
+    }
+
+    // If we get here, save everything normally
+    try {
+      for (const [id, changes] of Object.entries(unsavedChanges)) {
+        // For any job being saved with pagination checked, ensure it has a path
+        const trabalho = trabalhos.find(t => t.id === parseInt(id));
+        const isPaginationEnabled = changes.hasOwnProperty('paginacao') ? changes.paginacao : trabalho.paginacao;
+        
+        if (isPaginationEnabled) {
+          const currentPath = changes.path_trabalho || trabalho.path_trabalho;
+          if (!currentPath || currentPath.trim() === '') {
+            showToast.error(`Não é possível salvar. O path do trabalho tem que ser preenchido para o trabalho ${trabalho.numero_fo}`);
+            return;
+          }
+        }
+
+        const { error } = await supabase
+          .from('folhas_obra')
+          .update({
+            ...changes,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', id);
+
+        if (error) throw error;
       }
-    }));
+
+      setUnsavedChanges({});
+      showToast.success('Todas as alterações salvas com sucesso!');
+      await refreshData();
+    } catch (error) {
+      console.error('Erro ao salvar alterações:', error);
+      showToast.error(`Erro ao salvar alterações: ${error.message}`);
+    }
   };
 
   const handleDelete = async (id) => {
@@ -174,10 +323,43 @@ const TabelaTrabalhos = ({ trabalhos, designers, supabase, showToast, refreshDat
       // Consider if refresh is needed even on error
     }
   };
+
+  // Add validation function for saving
+  const validateSave = (changes) => {
+    const invalidJobs = [];
+    
+    // Check each job that has changes
+    Object.entries(changes).forEach(([jobId, updates]) => {
+      const job = trabalhos.find(t => t.id === parseInt(jobId));
+      if (!job) return;
+
+      // If pagination is being set to true, path must be filled
+      if (updates.paginacao) {
+        const path = updates.path_trabalho ?? job.path_trabalho;
+        if (!path || path.trim() === '') {
+          invalidJobs.push(job.numero_fo);
+        }
+      }
+    });
+
+    return invalidJobs;
+  };
+
+  // Modify the save function to include validation
+  const handleSave = async () => {
+    const invalidJobs = validateSave(unsavedChanges);
+    if (invalidJobs.length > 0) {
+      showToast.error(`O path do trabalho tem que ser preenchido para os seguintes trabalhos: ${invalidJobs.join(', ')}`);
+      return;
+    }
+
+    // Proceed with save...
+  };
   // --- End Event Handlers ---
 
   // --- Helper Functions (Keep As Is) ---
   const getEffectiveState = (trabalho, field) => {
+    if (!trabalho) return false;
     return unsavedChanges[trabalho.id]?.[field] ?? trabalho[field] ?? false;
   };
 
@@ -255,8 +437,22 @@ const TabelaTrabalhos = ({ trabalhos, designers, supabase, showToast, refreshDat
         <Table.Td>
           <Checkbox
             size="xs"
-            checked={isCompleted} // Directly use isCompleted
+            checked={getEffectiveState(trabalho, 'paginacao')}
             onChange={(e) => handleCheckboxChange(trabalho.id, 'paginacao', e.target.checked)}
+            styles={{
+              input: {
+                backgroundColor: getEffectiveState(trabalho, 'paginacao') ? '#fd7e14' : undefined,
+                borderColor: getEffectiveState(trabalho, 'paginacao') ? '#fd7e14' : undefined,
+                '&:checked': {
+                  backgroundColor: '#fd7e14',
+                  borderColor: '#fd7e14',
+                },
+                '&:hover': {
+                  backgroundColor: getEffectiveState(trabalho, 'paginacao') ? '#fd7e14' : undefined,
+                  borderColor: '#fd7e14',
+                }
+              }
+            }}
           />
         </Table.Td>
         <Table.Td>{formatarData(trabalho.data_saida)}</Table.Td>
@@ -266,7 +462,18 @@ const TabelaTrabalhos = ({ trabalhos, designers, supabase, showToast, refreshDat
             placeholder="Caminho..."
             value={getEffectiveValue(trabalho, 'path_trabalho')}
             onChange={(e) => handlePathChange(trabalho.id, e.target.value)}
-            disabled={isCompleted}
+            onKeyPress={(e) => handlePathKeyPress(trabalho.id, e)}
+            disabled={!getEffectiveState(trabalho, 'paginacao')}
+            styles={{
+              input: {
+                backgroundColor: getEffectiveState(trabalho, 'paginacao') ? 'white' : '#f5f5f5',
+                '&:disabled': {
+                  backgroundColor: '#f5f5f5',
+                  color: '#999',
+                  cursor: 'not-allowed'
+                }
+              }
+            }}
           />
         </Table.Td>
         <Table.Td>

@@ -38,15 +38,24 @@ const HomePage = ({
 
   // Filter logic remains here, using props for filters and data
   const trabalhosFiltrados = React.useMemo(() => {
-      return trabalhos.filter(trabalho => {
-        if (filtroAbertos && trabalho.paginacao) return false;
-        // Ensure numero_fo exists and is a number before calling toString
-        if (filtroFO && (!trabalho.numero_fo || !trabalho.numero_fo.toString().includes(filtroFO))) return false;
-        // Ensure item exists before calling toLowerCase
-        if (filtroItem && (!trabalho.item || !trabalho.item.toLowerCase().includes(filtroItem.toLowerCase()))) return false;
-        return true;
-      });
-  }, [trabalhos, filtroAbertos, filtroFO, filtroItem]); // Recalculate when data or filters change
+    return trabalhos.filter(trabalho => {
+      // Only filter based on saved state, not unsaved changes
+      const isCompleted = trabalho.paginacao;
+      
+      // Filter based on open/closed status
+      if (filtroAbertos) {
+        if (isCompleted) return false;  // Hide completed jobs when showing open jobs
+      } else {
+        if (!isCompleted) return false; // Hide open jobs when showing closed jobs
+      }
+
+      // Then apply other filters
+      if (filtroFO && (!trabalho.numero_fo || !trabalho.numero_fo.toString().includes(filtroFO))) return false;
+      if (filtroItem && (!trabalho.item || !trabalho.item.toLowerCase().includes(filtroItem.toLowerCase()))) return false;
+      
+      return true;
+    });
+  }, [trabalhos, filtroAbertos, filtroFO, filtroItem]); // Remove unsavedChanges from dependencies
 
   // Refactor loading/error states to use Mantine components
   if (isLoading) {

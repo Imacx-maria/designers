@@ -30,10 +30,10 @@ const HeaderControls = ({
       {/* Group for Filters */}
       <Group>
         <Switch
-          label="Apenas trabalhos em aberto"
+          label={filtroAbertos ? "Mostrar trabalhos em aberto" : "Mostrar trabalhos concluídos"}
           checked={filtroAbertos}
           onChange={(event) => setFiltroAbertos(event.currentTarget.checked)}
-          size="sm" // Adjust size if needed
+          size="sm"
         />
         <TextInput
           placeholder="Filtrar por FO (ex: 1234)"
